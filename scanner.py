@@ -2,13 +2,12 @@
 scanner.py — Static security scan for Excel files.
 
 Never opens the file in Excel, never runs any macro. Uses oletools to read
-the VBA project's raw code/structure and flag risky API calls (the same
-technique antivirus engines use for Office documents).
+the VBA project's raw code/structure and flag risky API calls.
 
 Verdicts:
     CLEAN          - no VBA project in the file at all
     MACROS_BENIGN  - VBA present, no risky keywords found
-    SUSPICIOUS     - VBA present with auto-exec / shell / network / obfuscation
+    SUSPICIOUS     - VBA present with confirmed malicious/risky keywords
     ENCRYPTED      - file is password-protected, cannot be inspected -> block
     ERROR          - file unreadable/corrupt -> block (fail closed)
 """
@@ -16,13 +15,28 @@ Verdicts:
 from oletools.olevba import VBA_Parser
 from oletools.olevba import FileOpenError
 
-# oletools tags each finding with a type. These three types indicate the
-# macro is *doing* something risky, not just existing.
-RISK_TYPES = {"AutoExec", "Suspicious", "IOC"}
+# Keywords that indicate the macro is actually performing dangerous actions.
+# We whitelist these to avoid blocking benign macros (like AutoOpen) 
+# that are flagged incorrectly by generic 'Suspicious' or 'AutoExec' tags.
+HIGH_RISK_KEYWORDS = {
+    "Shell", "CreateObject", "WinHttp", "WinHttpRequest",
+    "URLDownloadToFileA", "URLDownloadToFile", "Kill", "Lib",
+    "Run", "ShellExecute", "RegWrite", "RegDelete",
+}
 
 
 def _classify(findings, has_macros):
-    risky = [f for f in findings if f["type"] in RISK_TYPES]
+    """
+    Classify based on actual risk indicators, not just the presence of 
+    generic tags like 'Suspicious' or 'AutoExec'.
+    """
+    # Logic: Block ONLY if an IOC (Indicator of Compromise) is found 
+    # OR if a known high-risk keyword is detected.
+    risky = [
+        f for f in findings
+        if f["type"] == "IOC" or f["keyword"] in HIGH_RISK_KEYWORDS
+    ]
+
     if risky:
         return "SUSPICIOUS"
     if has_macros:
@@ -33,13 +47,6 @@ def _classify(findings, has_macros):
 def scan_file(file_path):
     """
     Run static analysis on file_path.
-
-    Returns dict:
-        {
-          "verdict": "CLEAN" | "MACROS_BENIGN" | "SUSPICIOUS" | "ENCRYPTED" | "ERROR",
-          "findings": [ {"type": .., "keyword": .., "description": ..}, ... ],
-          "message": human-readable summary
-        }
     """
     parser = None
     try:
@@ -50,8 +57,6 @@ def scan_file(file_path):
 
         if has_macros:
             # analyze_macros() returns list of (kw_type, keyword, description)
-            # It performs static string/pattern analysis on the extracted
-            # VBA source — it does not compile or run anything.
             for kw_type, keyword, description in parser.analyze_macros():
                 findings.append(
                     {"type": kw_type, "keyword": keyword, "description": description}
@@ -61,7 +66,7 @@ def scan_file(file_path):
 
         messages = {
             "CLEAN": "No VBA project found.",
-            "MACROS_BENIGN": f"VBA present ({len(findings)} keyword hit(s)), nothing risky flagged.",
+            "MACROS_BENIGN": f"VBA present ({len(findings)} finding(s) logged), no high-risk keywords detected.",
             "SUSPICIOUS": f"Risky macro behavior detected: {len(findings)} flagged item(s).",
         }
 
@@ -72,14 +77,12 @@ def scan_file(file_path):
         }
 
     except FileOpenError as e:
-        # Usually means password-protected / encrypted workbook.
         return {
             "verdict": "ENCRYPTED",
             "findings": [],
             "message": f"Cannot open for inspection (likely encrypted): {e}",
         }
     except Exception as e:
-        # Fail closed: anything unreadable/corrupt is treated as unsafe.
         return {
             "verdict": "ERROR",
             "findings": [],
