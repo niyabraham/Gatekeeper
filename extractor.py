@@ -1,16 +1,12 @@
 """
 extractor.py — Lossless data extraction from Excel files.
 
-Uses openpyxl only. openpyxl parses the XML/zip structure of the workbook
-directly — it never loads the VBA engine and never executes a macro, even
-on an .xlsm file. That's what makes reading "safe" regardless of what a
-macro inside the file might do if opened in real Excel.
+Uses openpyxl to parse the XML/zip structure. Safe against macros because
+it never initializes the Excel VBA engine.
 
-Note: a plain `pandas.read_excel()` on a merged-cell sheet returns the
-value only in the merged range's top-left cell and None/NaN everywhere
-else in that range — that IS data loss for a survey/questionnaire sheet
-with merged header cells. This module fills every cell in a merged range
-with its value before writing output, so nothing merged looks "missing".
+Improvements:
+    1. Formatting Preservation: Copies 'number_format' from source to target.
+    2. Name Collision Handling: Auto-renames sheets if truncation causes conflicts.
 """
 
 import openpyxl
@@ -29,29 +25,39 @@ def _merged_fill_map(sheet):
     return fill
 
 
+def _get_unique_sheet_name(wb, name):
+    """Ensure sheet names are < 31 chars and unique within the workbook."""
+    name = name[:31]
+    if name not in wb.sheetnames:
+        return name
+    
+    # If collision, try to append _1, _2, etc., keeping total length under 31
+    for i in range(1, 100):
+        suffix = f"_{i}"
+        new_name = f"{name[:31-len(suffix)]}{suffix}"
+        if new_name not in wb.sheetnames:
+            return new_name
+    return name
+
+
 def extract_all_data(file_path, output_path):
     """
     Read every worksheet/row/column of file_path and write a clean,
-    macro-free .xlsx copy at output_path with identical values.
-
-    Returns a per-sheet report dict: {sheet_name: {"rows":, "cols":, "non_empty_cells":}}
-
-    Caveat: data_only=True returns Excel's last-*cached*-calculated value
-    for formulas, not the live formula. If a cell was never calculated in
-    real Excel (e.g. built by a script and never opened), that cache can
-    be None — a limitation of reading formulas without an Excel engine,
-    not something this function can fix.
+    macro-free .xlsx copy at output_path.
     """
     src_wb = openpyxl.load_workbook(file_path, data_only=True, keep_vba=False)
     out_wb = openpyxl.Workbook()
-    out_wb.remove(out_wb.active)  # drop the default blank sheet
+    # Remove default sheet created by openpyxl
+    if "Sheet" in out_wb.sheetnames:
+        out_wb.remove(out_wb["Sheet"])
 
     report = {}
     for sheet in src_wb.worksheets:
         fill_map = _merged_fill_map(sheet)
 
-        # openpyxl sheet titles cap at 31 chars
-        out_ws = out_wb.create_sheet(title=sheet.title[:31])
+        # Handle sheet name truncation and collision
+        unique_name = _get_unique_sheet_name(out_wb, sheet.title)
+        out_ws = out_wb.create_sheet(title=unique_name)
 
         max_row = sheet.max_row or 0
         max_col = sheet.max_column or 0
@@ -59,10 +65,15 @@ def extract_all_data(file_path, output_path):
 
         for row in range(1, max_row + 1):
             for col in range(1, max_col + 1):
-                value = fill_map.get((row, col), sheet.cell(row=row, column=col).value)
+                src_cell = sheet.cell(row=row, column=col)
+                value = fill_map.get((row, col), src_cell.value)
+                
                 if value is not None:
                     non_empty += 1
-                    out_ws.cell(row=row, column=col, value=value)
+                    # Set value
+                    new_cell = out_ws.cell(row=row, column=col, value=value)
+                    # Preserve formatting (e.g., %, dates, currency)
+                    new_cell.number_format = src_cell.number_format
 
         report[sheet.title] = {
             "rows": max_row,
@@ -77,11 +88,7 @@ def extract_all_data(file_path, output_path):
 
 
 def export_sheets_to_csv(clean_xlsx_path, out_dir):
-    """
-    Optional convenience: split a clean workbook into one CSV per sheet.
-    Only ever called on our OWN clean output, never on the original
-    supplier file, so no security concern using it freely.
-    """
+    """Split a clean workbook into one CSV per sheet."""
     import csv
     import os
 

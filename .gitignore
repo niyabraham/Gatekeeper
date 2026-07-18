@@ -1,4 +1,15 @@
+# Python environment
 venv/
 __pycache__/
 *.pyc
-audit_log.jsonl
+
+# Data output/quarantine (don't commit raw/malicious data)
+clean_output/
+quarantine/
+
+# Office junk files
+~$*
+*.tmp
+
+# Compliance logs (optional: keep if you want versioned history)
+# audit_log.jsonl

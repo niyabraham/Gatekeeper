@@ -4,12 +4,9 @@ gatekeeper.py — Entry point. Ties scanner + extractor into one pipeline.
 Flow:
     1. Scan file (static analysis only, zero execution).
     2. If verdict is SUSPICIOUS / ENCRYPTED / ERROR -> quarantine, block,
-       write an audit record. Data team never gets the file.
+       write an audit record. (Collisions prevented by timestamping).
     3. If verdict is CLEAN / MACROS_BENIGN -> extract all data to a clean
-       macro-free .xlsx, write an audit record. Data team gets the clean file.
-
-Usage:
-    python gatekeeper.py path/to/supplier_file.xlsm
+       macro-free .xlsx, write an audit record.
 """
 
 import json
@@ -37,12 +34,33 @@ def process_file(file_path):
     os.makedirs(QUARANTINE_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    # 1. PRE-FLIGHT CHECK: Ensure file exists before touching it
+    if not os.path.exists(file_path):
+        result = {
+            "file": os.path.basename(file_path),
+            "status": "BLOCKED",
+            "verdict": "ERROR",
+            "message": "File not found at specified path.",
+            "findings": [],
+            "quarantined_to": None,
+        }
+        _log(result)
+        return result
+
     filename = os.path.basename(file_path)
     scan_result = scan_file(file_path)
+    
+    # Generate timestamp for unique naming
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # 2. BLOCKING LOGIC
     if scan_result["verdict"] in BLOCKING_VERDICTS:
-        dest = os.path.join(QUARANTINE_DIR, filename)
+        # Use timestamp to prevent overwriting existing quarantined files
+        dest_filename = f"{timestamp_str}_{filename}"
+        dest = os.path.join(QUARANTINE_DIR, dest_filename)
+        
         shutil.copy(file_path, dest)
+        
         result = {
             "file": filename,
             "status": "BLOCKED",
@@ -54,18 +72,18 @@ def process_file(file_path):
         _log(result)
         return result
 
-    # CLEAN or MACROS_BENIGN -> safe to extract
+    # 3. EXTRACTION LOGIC (CLEAN or MACROS_BENIGN)
     stem = os.path.splitext(filename)[0]
     output_path = os.path.join(OUTPUT_DIR, f"clean_{stem}.xlsx")
 
     try:
         extraction_report = extract_all_data(file_path, output_path)
     except Exception as e:
-        # Fail closed: scanner said okay, but the file isn't a valid
-        # workbook openpyxl can parse (corrupt / wrong format / not
-        # really Office at all). Block rather than crash or pass it on.
-        dest = os.path.join(QUARANTINE_DIR, filename)
+        # Fail closed: Scanner ok, but extraction failed (corrupt/unreadable)
+        dest_filename = f"CORRUPT_{timestamp_str}_{filename}"
+        dest = os.path.join(QUARANTINE_DIR, dest_filename)
         shutil.copy(file_path, dest)
+        
         result = {
             "file": filename,
             "status": "BLOCKED",
