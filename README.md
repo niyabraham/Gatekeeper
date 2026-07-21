@@ -18,6 +18,7 @@ cd Gatekeeper
  B. Create and activate a virtual environment:
 
 python -m venv venv
+
 source venv/bin/activate  # On Windows use: venv\Scripts\activate
 
 C. Install the required dependencies:
