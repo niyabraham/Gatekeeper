@@ -12,6 +12,7 @@ Setup Steps:
 A. Clone the repository and navigate to the project directory:
 
 git clone https://github.com/niyabraham/Gatekeeper.git
+
 cd Gatekeeper
 
  B. Create and activate a virtual environment:
