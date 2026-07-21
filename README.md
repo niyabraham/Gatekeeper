@@ -43,6 +43,7 @@ Built-In Python Standard Libraries
 **4. Core Modules & Script Logic**
 
 The project structure is broken down into modular scripts that work in tandem:
+
 A. `gatekeeper.py` 
 
 * Role: Acts as the primary entry point and command-line interface (CLI) wrapper.
