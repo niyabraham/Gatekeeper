@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gatekeeper-scanner"
+version = "1.0.0"
+description = "Multi-format document security scanner for macro-enabled Office files, PDFs, images, and more"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+dependencies = [
+    "oletools",
+    "XLMMacroDeobfuscator",
+    "yara-python",
+    "pypdf",
+    "Pillow",
+    "python-docx",
+    "openpyxl",
+    "extract-msg",
+    "defusedxml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pywin32",   # required for generate_test_samples.py on Windows
+]
+
+[project.scripts]
+gatekeeper = "gatekeeper.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gatekeeper*"]
+
+[tool.setuptools.package-data]
+"gatekeeper" = ["rules/*.json", "rules/yara/*.yar", "rules/yara/*.yara"]
