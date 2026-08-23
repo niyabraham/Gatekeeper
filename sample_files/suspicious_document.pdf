@@ -1,0 +1,45 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /OpenAction 2 0 R /AcroForm << /Fields [] >> >>
+endobj
+2 0 obj
+<< /Type /Action /S /JavaScript
+   /JS (app.alert('Test'); eval(unescape('%61%70%70%2e%61%6c%65%72%74'));
+        String.fromCharCode(71,97,116,101,107,101,101,112,101,114))
+>>
+endobj
+3 0 obj
+<< /Type /Action /S /Launch /F (cmd.exe)
+   /Win << /F (cmd.exe) /P (/c powershell -nop -w hidden) >>
+>>
+endobj
+4 0 obj << /Type /Pages /Kids [5 0 R] /Count 1 >> endobj
+5 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792]
+   /Contents 6 0 R /Annots [7 0 R] /AA << /O 3 0 R >>
+>>
+endobj
+6 0 obj << /Length 44 >>
+stream
+BT /F1 12 Tf 100 700 Td (Gatekeeper Test PDF) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Annot /Subtype /Link /Rect [100 600 300 620]
+   /A << /Type /Action /S /URI /URI (http://malware-test.xyz/payload.exe) >>
+>>
+endobj
+xref
+0 8
+0000000000 65535 f
+0000000009 00000 n
+0000000068 00000 n
+0000000230 00000 n
+0000000370 00000 n
+0000000430 00000 n
+0000000600 00000 n
+0000000696 00000 n
+trailer << /Size 8 /Root 1 0 R >>
+startxref
+840
+%%EOF

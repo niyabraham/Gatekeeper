@@ -1,0 +1,16 @@
+{
+  "rules": [
+    {
+      "name": "Suspicious_Shell_Execution",
+      "weight": 40,
+      "patterns": ["Shell", "vbNormalFocus", "CreateObject"],
+      "description": "Detects execution of external shell commands or automation objects."
+    },
+    {
+      "name": "PowerShell_In_Macro",
+      "weight": 40,
+      "patterns": ["powershell", "cmd.exe", "Invoke-Expression"],
+      "description": "Detects embedded command-line shell invocation strings."
+    }
+  ]
+}
