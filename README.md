@@ -404,7 +404,7 @@ The company's existing `validators.py` (used as the synchronous upload gate) was
 
 Checks already present in Gatekeeper that exceed `validators.py`'s equivalent (VBA/YARA macro analysis, PDF structural analysis, co-occurrence heuristics, Chr()/base64 deobfuscation) were left unchanged — `validators.py`'s versions of those checks are a subset of what Gatekeeper already does.
 
-One structural difference remains by design: `validators.py` sniffs the actual MIME type via `python-magic` and cross-checks it against the extension, while Gatekeeper routes purely on file extension. This wasn't ported because it would be a significant behavioural change to `FileRouter`'s core design — worth a discussion with Sankaran before implementing rather than silently added.
+One structural difference remains by design: `validators.py` sniffs the actual MIME type via `python-magic` and cross-checks it against the extension, while Gatekeeper routes purely on file extension. This wasn't ported because it would be a significant behavioural change to `FileRouter`'s core design — worth a discussion with before implementing rather than silently added.
 
 ---
 
