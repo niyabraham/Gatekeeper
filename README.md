@@ -6,31 +6,6 @@ It is packaged as a pip-installable library so it can be imported directly into 
 
 ---
 
-## Content-Based Routing
-
-As of this version, Gatekeeper determines a file's format from its **actual content**, not its filename extension. Previously, a malicious file renamed from `payload.exe` to `invoice.pdf` would be routed to `PDFScanner` purely because of the `.pdf` name — the file's real content was never verified.
-
-`FileRouter` now sniffs the file (via `gatekeeper/content_sniffer.py`) using:
-
-- **Magic bytes** for binary formats — PDF (`%PDF-`), PNG, JPEG, LNK, ZIP, OLE2
-- **ZIP-internal inspection** for OOXML — reads `[Content_Types].xml` to distinguish `.docx`/`.xlsx`/`.docm`/`.xlsm`/`.dotm`/`.xltm`/`.xlsb`, since they all share the same outer ZIP signature
-- **OLE2-internal inspection** for legacy Office — reads internal stream names (`WordDocument`, `Workbook`/`Book`, MAPI property streams) to distinguish `.doc`/`.xls`/`.msg`, since they all share the same outer OLE2 signature
-- **Structural heuristics** for text formats without magic bytes — `.xml` (`<?xml`), `.html` (`<!doctype html`), `.url` (`[InternetShortcut]`), `.eml` (RFC822 headers)
-
-No new heavy dependency (no `python-magic`/libmagic) was introduced — `olefile` is already a transitive dependency of `oletools`, so detection stays dependency-light and Windows-install-friendly.
-
-**When content and extension disagree:** the file is still scanned and routed according to its **real** detected content (not silently trusted based on the filename), and an `Extension_Content_Mismatch` finding (weight 50) is added to the top of the findings list — so the disguise itself becomes part of the audit trail and risk score, on top of whatever the real scanner finds.
-
-### The one genuine limitation: CSV vs Markdown
-
-`.csv` and `.md` are the two formats with no reliable content signature at all — plain delimited text and plain prose share no structural markers a sniffer can key on. `classify_ambiguous_text()` uses lightweight heuristics (consistent delimiter count across rows vs. Markdown syntax like `#`, `` ``` ``, `[text](url)`) and falls back to the claimed extension when the signal is genuinely inconclusive, rather than guessing. This is an intentional, documented gap — not an oversight.
-
-### If content cannot be identified as anything
-
-A file whose content matches no signature at all, and isn't a plausible ambiguous-text fallback, is **rejected outright** with a clear error — Gatekeeper no longer silently scans unidentifiable content just because its extension looked legitimate.
-
----
-
 ## Supported File Formats
 
 | Format | Extensions | Scanner |
