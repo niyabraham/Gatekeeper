@@ -360,31 +360,9 @@ Generates 11 test files covering all supported formats with realistic malicious 
 
 ---
 
-## Gap Analysis Against `validators.py`
 
-The company's existing `validators.py` (used as the synchronous upload gate) was reviewed against Gatekeeper's checks. The following checks existed in `validators.py` but not in Gatekeeper, and have now been added:
-
-| Check | Where it was added |
-|---|---|
-| Image decompression bomb (pixel count > 50MP) | `image_scanner.py` |
-| Expanded HTML-injection patterns (`vbscript:`, `onclick=`, `onmouseover=`, `data:text/html`, `<embed>`) | `text_scanner.py` |
-| Script/HTML-injection scan inside OOXML XML content | `office_scanner.py` |
-| CSV formula-injection scan | new `csv_scanner.py` |
-| XML XXE / malformed-XML scan | new `xml_scanner.py` |
-| HTML dangerous-markup scan | new `html_scanner.py` |
-| Windows shortcut (.lnk) magic-byte + dangerous-target scan | new `shortcut_scanner.py` |
-| Internet shortcut (.url) dangerous-scheme scan | new `shortcut_scanner.py` |
-| `.eml` registered as a distinct routable extension | `file_router.py` |
-| MSG oversized-file check (50MB) | `email_scanner.py` |
-
-Checks already present in Gatekeeper that exceed `validators.py`'s equivalent (VBA/YARA macro analysis, PDF structural analysis, co-occurrence heuristics, Chr()/base64 deobfuscation) were left unchanged — `validators.py`'s versions of those checks are a subset of what Gatekeeper already does.
-
-One structural difference remains by design: `validators.py` sniffs the actual MIME type via `python-magic` and cross-checks it against the extension, while Gatekeeper routes purely on file extension. This wasn't ported because it would be a significant behavioural change to `FileRouter`'s core design — worth a discussion with before implementing rather than silently added.
-
----
 
 ## Known Limitations
 
 - **ViperMonkey** (VBA emulation) is not integrated due to a `pyparsing` version conflict with Python 3.12. It is documented as a future roadmap item.
-- The PDF test sample produces a benign `incorrect startxref pointer` warning from pypdf — this is an artifact of the hand-crafted test file, not a scanner bug.
 - `generate_test_samples.py` requires a Windows machine with Excel and Word installed for the COM-dependent file types (`.xlsm`, `.xls`, `.docm`, `.doc`). The remaining 6 formats generate on any platform.
